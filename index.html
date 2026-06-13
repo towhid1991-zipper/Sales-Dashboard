@@ -304,6 +304,12 @@ footer .logo-line span{ color:var(--accent); }
         <option value="Vislon">Vislon</option>
       </select>
     </div>
+    <div class="field">
+      <label>Sales Person</label>
+      <select id="salesFilter">
+        <option value="all">All Sales Persons</option>
+      </select>
+    </div>
     <button class="btn btn-secondary" onclick="applyFilters()">Apply Filters</button>
   </div>
 
@@ -770,6 +776,7 @@ function getFilteredForDashboard(){
   const {from,to} = getDateRange();
   const factory = document.getElementById('factoryFilter').value;
   const item = document.getElementById('itemFilter').value;
+  const sales = document.getElementById('salesFilter').value;
   return records.filter(r=>{
     if(!r.date) return false;
     const d = new Date(r.date);
@@ -777,12 +784,24 @@ function getFilteredForDashboard(){
     if(to && d > to) return false;
     if(factory!=='all' && r.factory!==factory) return false;
     if(item!=='all' && r.generic!==item) return false;
+    if(sales!=='all' && r.sales!==sales) return false;
     return true;
   });
 }
 
+/* ---------- Populate dynamic filters ---------- */
+function populateSalesFilter(){
+  const sel = document.getElementById('salesFilter');
+  const current = sel.value;
+  const names = Array.from(new Set(records.map(r=>r.sales).filter(Boolean))).sort();
+  sel.innerHTML = '<option value="all">All Sales Persons</option>' +
+    names.map(n=>`<option value="${n}">${n}</option>`).join('');
+  if(names.includes(current)) sel.value = current;
+}
+
 /* ---------- Dashboard rendering ---------- */
 function renderDashboard(){
+  populateSalesFilter();
   const data = getFilteredForDashboard();
   const total = data.reduce((s,r)=>s+Number(r.value||0),0);
   document.getElementById('kpiTotal').textContent = '$'+total.toLocaleString(undefined,{maximumFractionDigits:0});
