@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sales Command Center</title>
+
+<!-- Libraries -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+
+<style>
+:root{
+  --bg:#0a0e17;
+  --panel:#0f1623;
+  --panel-2:#141d2e;
+  --line:#1f2c42;
+  --text:#e7ecf5;
+  --muted:#7c8aa3;
+  --accent:#ff7a45;       /* signal orange */
+  --accent-2:#3ddc97;     /* signal green */
+  --accent-3:#5b8def;     /* signal blue */
+  --danger:#ff5d6c;
+  --radius:14px;
+  --mono: 'JetBrains Mono', 'Courier New', monospace;
+  --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+*{box-sizing:border-box; margin:0; padding:0;}
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Sora:wght@600;700;800&display=swap');
+
+body{
+  font-family:var(--sans);
+  background:
+    radial-gradient(circle at 85% -10%, rgba(91,141,239,0.10), transparent 40%),
+    radial-gradient(circle at 0% 100%, rgba(61,220,151,0.06), transparent 35%),
+    var(--bg);
+  color:var(--text);
+  min-height:100vh;
+  line-height:1.5;
+}
+
+/* ===================== HEADER ===================== */
+.topbar{
+  position:sticky; top:0; z-index:50;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:18px 28px;
+  background:rgba(10,14,23,0.85);
+  backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--line);
+}
+.brand{
+  display:flex; align-items:center; gap:12px;
+}
+.brand .mark{
+  width:38px; height:38px; border-radius:10px;
+  background:linear-gradient(135deg,var(--accent),var(--accent-3));
+  display:flex; align-items:center; justify-content:center;
+  font-family:var(--mono); font-weight:700; font-size:16px; color:#0a0e17;
+}
+.brand h1{
+  font-family:'Sora', var(--sans);
+  font-size:18px; font-weight:700; letter-spacing:0.3px;
+}
+.brand .sub{
+  font-size:11px; color:var(--muted); font-family:var(--mono); letter-spacing:1.5px; text-transform:uppercase;
+}
+.topbar nav{ display:flex; gap:6px; flex-wrap:wrap; }
+.topbar nav button{
+  background:transparent; border:1px solid var(--line); color:var(--muted);
+  padding:9px 16px; border-radius:999px; font-size:13px; font-weight:600;
+  cursor:pointer; transition:all .15s; font-family:var(--sans);
+}
+.topbar nav button:hover{ color:var(--text); border-color:var(--accent); }
+.topbar nav button.active{ background:var(--accent); color:#0a0e17; border-color:var(--accent); }
+
+.sync-pill{
+  display:flex; align-items:center; gap:8px; font-size:12px; font-family:var(--mono);
+  padding:6px 14px; border-radius:999px; border:1px solid var(--line); color:var(--muted);
+}
+.sync-dot{ width:8px; height:8px; border-radius:50%; background:var(--muted); }
+.sync-dot.live{ background:var(--accent-2); box-shadow:0 0 0 0 rgba(61,220,151,.7); animation:pulse 2s infinite; }
+.sync-dot.err{ background:var(--danger); }
+@keyframes pulse{
+  0%{box-shadow:0 0 0 0 rgba(61,220,151,.5);}
+  70%{box-shadow:0 0 0 6px rgba(61,220,151,0);}
+  100%{box-shadow:0 0 0 0 rgba(61,220,151,0);}
+}
+
+/* ===================== LAYOUT ===================== */
+.container{ max-width:1400px; margin:0 auto; padding:28px; }
+.view{ display:none; animation:fadein .3s ease; }
+.view.active{ display:block; }
+@keyframes fadein{ from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);} }
+
+.page-head{ margin-bottom:24px; }
+.page-head h2{ font-family:'Sora', var(--sans); font-size:26px; font-weight:800; letter-spacing:-0.3px; }
+.page-head p{ color:var(--muted); font-size:14px; margin-top:4px; }
+
+/* ===================== CARDS / PANELS ===================== */
+.card{
+  background:linear-gradient(180deg, var(--panel-2), var(--panel));
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  padding:22px;
+}
+.card + .card{ margin-top:18px; }
+
+/* KPI grid */
+.kpi-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:14px; margin-bottom:18px; }
+.kpi{
+  background:linear-gradient(180deg, var(--panel-2), var(--panel));
+  border:1px solid var(--line); border-radius:var(--radius); padding:18px 20px;
+  position:relative; overflow:hidden;
+}
+.kpi::after{
+  content:''; position:absolute; right:-30px; top:-30px; width:90px; height:90px; border-radius:50%;
+  background:radial-gradient(circle, var(--kpi-glow, var(--accent)) 0%, transparent 70%); opacity:.18;
+}
+.kpi .label{ font-size:11px; text-transform:uppercase; letter-spacing:1.5px; color:var(--muted); font-family:var(--mono); }
+.kpi .value{ font-family:'Sora', var(--sans); font-size:30px; font-weight:800; margin-top:8px; }
+.kpi .delta{ font-size:12px; margin-top:6px; color:var(--accent-2); font-family:var(--mono); }
+
+/* Forms */
+.form-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:14px; }
+.field label{ display:block; font-size:12px; color:var(--muted); margin-bottom:6px; font-weight:600; letter-spacing:.3px; }
+.field input, .field select{
+  width:100%; padding:11px 13px; background:#0b1220; border:1px solid var(--line);
+  border-radius:10px; color:var(--text); font-size:14px; font-family:var(--sans);
+  transition:border-color .15s;
+}
+.field input:focus, .field select:focus{ outline:none; border-color:var(--accent-3); }
+.field input::placeholder{ color:#445069; }
+
+.btn{
+  border:none; border-radius:10px; padding:12px 22px; font-weight:700; font-size:14px;
+  cursor:pointer; transition:transform .12s, box-shadow .12s; font-family:var(--sans);
+  display:inline-flex; align-items:center; gap:8px;
+}
+.btn:active{ transform:scale(.97); }
+.btn-primary{ background:var(--accent); color:#0a0e17; }
+.btn-primary:hover{ box-shadow:0 6px 20px rgba(255,122,69,.3); }
+.btn-secondary{ background:transparent; border:1px solid var(--line); color:var(--text); }
+.btn-secondary:hover{ border-color:var(--accent-3); color:var(--accent-3); }
+.btn-green{ background:var(--accent-2); color:#06231a; }
+.btn-green:hover{ box-shadow:0 6px 20px rgba(61,220,151,.25); }
+.btn-blue{ background:var(--accent-3); color:#06121f; }
+.btn-blue:hover{ box-shadow:0 6px 20px rgba(91,141,239,.25); }
+.btn:disabled{ opacity:.5; cursor:not-allowed; }
+
+.actions-row{ display:flex; gap:10px; flex-wrap:wrap; margin-top:18px; }
+
+/* Filters bar */
+.filters{
+  display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; margin-bottom:18px;
+}
+.filters .field{ min-width:160px; }
+
+/* Charts */
+.chart-grid{ display:grid; grid-template-columns:1.4fr 1fr; gap:18px; margin-bottom:18px; }
+.chart-grid .card{ margin-top:0; }
+@media (max-width:1000px){ .chart-grid{ grid-template-columns:1fr; } }
+.chart-box{ position:relative; height:300px; }
+.card h3{ font-family:'Sora', var(--sans); font-size:15px; font-weight:700; margin-bottom:14px; letter-spacing:.2px; }
+.card h3 span{ color:var(--muted); font-weight:500; font-size:12px; }
+
+/* Table */
+.table-wrap{ overflow-x:auto; border-radius:10px; border:1px solid var(--line); }
+table{ width:100%; border-collapse:collapse; font-size:13px; min-width:1000px; }
+thead th{
+  background:#0b1220; text-align:left; padding:12px 14px; font-size:11px; text-transform:uppercase;
+  letter-spacing:1px; color:var(--muted); font-family:var(--mono); white-space:nowrap;
+  border-bottom:1px solid var(--line); position:sticky; top:0;
+}
+tbody td{ padding:11px 14px; border-bottom:1px solid var(--line); white-space:nowrap; }
+tbody tr:hover{ background:rgba(91,141,239,.05); }
+tbody tr:last-child td{ border-bottom:none; }
+.tag{
+  display:inline-block; padding:3px 10px; border-radius:999px; font-size:11px; font-weight:700;
+  font-family:var(--mono); letter-spacing:.5px;
+}
+.tag-nylon{ background:rgba(91,141,239,.15); color:var(--accent-3); }
+.tag-metal{ background:rgba(255,122,69,.15); color:var(--accent); }
+.tag-vislon{ background:rgba(61,220,151,.15); color:var(--accent-2); }
+.tag-factory{ background:rgba(255,255,255,.06); color:var(--text); font-weight:600; }
+.row-del{ background:transparent; border:none; color:var(--danger); cursor:pointer; font-size:13px; font-weight:700; }
+.row-del:hover{ text-decoration:underline; }
+
+/* Empty state */
+.empty{
+  text-align:center; padding:60px 20px; color:var(--muted);
+}
+.empty .big{ font-size:40px; margin-bottom:10px; }
+.empty h4{ color:var(--text); font-size:16px; margin-bottom:6px; font-family:'Sora',var(--sans); }
+
+/* Setup / connection panel */
+.setup-steps{ display:flex; flex-direction:column; gap:14px; }
+.step{ display:flex; gap:14px; align-items:flex-start; }
+.step .num{
+  flex:none; width:28px; height:28px; border-radius:8px; background:var(--accent);
+  color:#0a0e17; font-family:var(--mono); font-weight:800; font-size:13px;
+  display:flex; align-items:center; justify-content:center;
+}
+.step .txt{ font-size:14px; color:var(--text); }
+.step .txt code{
+  background:#0b1220; border:1px solid var(--line); padding:2px 8px; border-radius:6px;
+  font-family:var(--mono); font-size:12px; color:var(--accent-2);
+}
+.step .txt a{ color:var(--accent-3); }
+
+footer{
+  text-align:center; padding:30px 20px 40px; color:var(--muted); font-size:12px; font-family:var(--mono);
+  border-top:1px solid var(--line); margin-top:30px;
+}
+footer .logo-line{ font-weight:700; color:var(--text); letter-spacing:1px; }
+footer .logo-line span{ color:var(--accent); }
+
+.toast{
+  position:fixed; bottom:24px; right:24px; background:var(--panel-2); border:1px solid var(--line);
+  padding:14px 20px; border-radius:10px; font-size:13px; z-index:100; transform:translateY(100px); opacity:0;
+  transition:all .3s; box-shadow:0 10px 40px rgba(0,0,0,.4);
+}
+.toast.show{ transform:translateY(0); opacity:1; }
+.toast.ok{ border-color:var(--accent-2); }
+.toast.err{ border-color:var(--danger); }
+
+@media (max-width:700px){
+  .topbar{ flex-direction:column; gap:14px; align-items:flex-start; }
+  .container{ padding:16px; }
+  .chart-box{ height:240px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ===================== TOP BAR ===================== -->
+<div class="topbar">
+  <div class="brand">
+    <div class="mark">SC</div>
+    <div>
+      <h1>Sales Command Center</h1>
+      <div class="sub">PI &amp; Shipment Intelligence</div>
+    </div>
+  </div>
+  <nav>
+    <button class="nav-btn active" data-view="dashboard">Dashboard</button>
+    <button class="nav-btn" data-view="entry">Daily Entry</button>
+    <button class="nav-btn" data-view="records">All Records</button>
+    <button class="nav-btn" data-view="setup">Setup</button>
+  </nav>
+  <div class="sync-pill">
+    <div class="sync-dot" id="syncDot"></div>
+    <span id="syncText">Not connected</span>
+  </div>
+</div>
+
+<div class="container">
+
+<!-- ===================== DASHBOARD VIEW ===================== -->
+<div class="view active" id="view-dashboard">
+  <div class="page-head">
+    <h2>Overview</h2>
+    <p>Live snapshot of PI value, volume and mix across factories, products and sales team.</p>
+  </div>
+
+  <div class="filters">
+    <div class="field">
+      <label>Period</label>
+      <select id="periodFilter">
+        <option value="all">All Time</option>
+        <option value="month">This Month</option>
+        <option value="quarter">This Quarter</option>
+        <option value="half">This Half Year</option>
+        <option value="year">This Year</option>
+        <option value="custom">Custom Range</option>
+      </select>
+    </div>
+    <div class="field" id="customFrom" style="display:none">
+      <label>From</label>
+      <input type="date" id="dateFrom">
+    </div>
+    <div class="field" id="customTo" style="display:none">
+      <label>To</label>
+      <input type="date" id="dateTo">
+    </div>
+    <div class="field">
+      <label>Factory</label>
+      <select id="factoryFilter">
+        <option value="all">All Factories</option>
+        <option value="Bangladesh">Bangladesh</option>
+        <option value="India">India</option>
+        <option value="China - IFA">China - IFA</option>
+        <option value="China - IFJS">China - IFJS</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Generic Item</label>
+      <select id="itemFilter">
+        <option value="all">All Items</option>
+        <option value="Nylon">Nylon</option>
+        <option value="Metal">Metal</option>
+        <option value="Vislon">Vislon</option>
+      </select>
+    </div>
+    <button class="btn btn-secondary" onclick="applyFilters()">Apply Filters</button>
+  </div>
+
+  <div class="kpi-grid">
+    <div class="kpi" style="--kpi-glow:var(--accent)">
+      <div class="label">Total PI Value</div>
+      <div class="value" id="kpiTotal">$0</div>
+      <div class="delta" id="kpiTotalSub">0 PIs</div>
+    </div>
+    <div class="kpi" style="--kpi-glow:var(--accent-3)">
+      <div class="label">Total Orders (PIs)</div>
+      <div class="value" id="kpiOrders">0</div>
+      <div class="delta" id="kpiOrdersSub">across all factories</div>
+    </div>
+    <div class="kpi" style="--kpi-glow:var(--accent-2)">
+      <div class="label">Avg PI Value</div>
+      <div class="value" id="kpiAvg">$0</div>
+      <div class="delta">per proforma invoice</div>
+    </div>
+    <div class="kpi" style="--kpi-glow:var(--accent)">
+      <div class="label">Top Sales Person</div>
+      <div class="value" id="kpiTopSales">—</div>
+      <div class="delta" id="kpiTopSalesSub">by PI value</div>
+    </div>
+    <div class="kpi" style="--kpi-glow:var(--accent-3)">
+      <div class="label">Top Customer</div>
+      <div class="value" id="kpiTopCustomer">—</div>
+      <div class="delta" id="kpiTopCustomerSub">by PI value</div>
+    </div>
+  </div>
+
+  <div class="chart-grid">
+    <div class="card">
+      <h3>PI Value Over Time <span>(trend by period selected)</span></h3>
+      <div class="chart-box"><canvas id="chartTrend"></canvas></div>
+    </div>
+    <div class="card">
+      <h3>Mix by Generic Item <span>(Nylon / Metal / Vislon)</span></h3>
+      <div class="chart-box"><canvas id="chartItem"></canvas></div>
+    </div>
+  </div>
+
+  <div class="chart-grid">
+    <div class="card">
+      <h3>PI Value by Factory <span>(Bangladesh / India / China - IFA / China - IFJS)</span></h3>
+      <div class="chart-box"><canvas id="chartFactory"></canvas></div>
+    </div>
+    <div class="card">
+      <h3>PI Value by Sales Person</h3>
+      <div class="chart-box"><canvas id="chartSales"></canvas></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Top Customers by PI Value</h3>
+    <div class="chart-box" style="height:260px"><canvas id="chartCustomer"></canvas></div>
+  </div>
+
+  <div class="actions-row">
+    <button class="btn btn-green" onclick="exportExcel()">⬇ Export Excel</button>
+    <button class="btn btn-blue" onclick="exportPDF()">⬇ Export PDF Report</button>
+  </div>
+</div>
+
+<!-- ===================== ENTRY VIEW ===================== -->
+<div class="view" id="view-entry">
+  <div class="page-head">
+    <h2>Daily PI Entry</h2>
+    <p>Add a new Proforma Invoice record. It syncs instantly to the shared Google Sheet for all colleagues.</p>
+  </div>
+
+  <div class="card">
+    <div class="form-grid">
+      <div class="field">
+        <label>PI Date</label>
+        <input type="date" id="f_date">
+      </div>
+      <div class="field">
+        <label>Proforma Invoice No</label>
+        <input type="text" id="f_pino" placeholder="e.g. PI-2026-0145">
+      </div>
+      <div class="field">
+        <label>Customer Name</label>
+        <input type="text" id="f_customer" placeholder="e.g. ABC Apparel Ltd.">
+      </div>
+      <div class="field">
+        <label>Buyer Name</label>
+        <input type="text" id="f_buyer" placeholder="e.g. H&M, Zara...">
+      </div>
+      <div class="field">
+        <label>Item Code</label>
+        <input type="text" id="f_itemcode" placeholder="e.g. ITM-3321">
+      </div>
+      <div class="field">
+        <label>Generic Item</label>
+        <select id="f_generic">
+          <option value="Nylon">Nylon</option>
+          <option value="Metal">Metal</option>
+          <option value="Vislon">Vislon</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Style Reference</label>
+        <input type="text" id="f_style" placeholder="e.g. SR-2026-A">
+      </div>
+      <div class="field">
+        <label>PI Value (USD)</label>
+        <input type="number" step="0.01" id="f_value" placeholder="e.g. 12500.00">
+      </div>
+      <div class="field">
+        <label>Factory</label>
+        <select id="f_factory">
+          <option value="Bangladesh">Bangladesh</option>
+          <option value="India">India</option>
+          <option value="China - IFA">China - IFA</option>
+          <option value="China - IFJS">China - IFJS</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Sales Person Name</label>
+        <input type="text" id="f_sales" placeholder="e.g. Towhid Ahmed">
+      </div>
+    </div>
+    <div class="actions-row">
+      <button class="btn btn-primary" onclick="addRecord()">＋ Add Record</button>
+      <button class="btn btn-secondary" onclick="clearForm()">Clear Form</button>
+    </div>
+    <p style="margin-top:14px; font-size:12px; color:var(--muted)" id="entryStatus"></p>
+  </div>
+</div>
+
+<!-- ===================== RECORDS VIEW ===================== -->
+<div class="view" id="view-records">
+  <div class="page-head">
+    <h2>All Records</h2>
+    <p>Every PI entered by you and your colleagues, synced live from Google Sheets.</p>
+  </div>
+
+  <div class="card">
+    <div class="actions-row" style="margin-top:0; margin-bottom:16px;">
+      <input type="text" id="searchBox" placeholder="Search customer, buyer, PI no, sales person..." style="flex:1; min-width:220px; padding:11px 13px; background:#0b1220; border:1px solid var(--line); border-radius:10px; color:var(--text); font-size:14px;" oninput="renderTable()">
+      <button class="btn btn-secondary" onclick="refreshData()">↻ Refresh</button>
+      <button class="btn btn-green" onclick="exportExcel()">⬇ Excel</button>
+      <button class="btn btn-blue" onclick="exportPDF()">⬇ PDF</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>PI Date</th><th>PI No</th><th>Customer</th><th>Buyer</th><th>Item Code</th>
+            <th>Generic Item</th><th>Style Ref</th><th>PI Value</th><th>Factory</th><th>Sales Person</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+    <div class="empty" id="emptyState" style="display:none">
+      <div class="big">📊</div>
+      <h4>No records yet</h4>
+      <p>Go to <b>Daily Entry</b> to add your first PI, or check <b>Setup</b> to connect Google Sheets.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== SETUP VIEW ===================== -->
+<div class="view" id="view-setup">
+  <div class="page-head">
+    <h2>Setup &amp; Connection</h2>
+    <p>Connect this dashboard to a shared Google Sheet so all colleagues see the same live data.</p>
+  </div>
+
+  <div class="card">
+    <h3>Step-by-step Google Sheets connection</h3>
+    <div class="setup-steps">
+      <div class="step">
+        <div class="num">1</div>
+        <div class="txt">Create a new Google Sheet. Rename the first tab to <code>Sales</code>. In row 1, add these exact headers in order:<br>
+        <code>PI Date | Proforma Invoice No | Customer Name | Buyer Name | Item Code | Generic Item | Style Reference | PI Value | Factory | Sales Person Name</code></div>
+      </div>
+      <div class="step">
+        <div class="num">2</div>
+        <div class="txt">Go to <a href="https://script.google.com" target="_blank">script.google.com</a> → <b>New Project</b>. Delete the default code and paste the Apps Script code (provided separately as <code>apps-script.gs</code>). Click the disk icon to save.</div>
+      </div>
+      <div class="step">
+        <div class="num">3</div>
+        <div class="txt">In the script editor, find the line <code>const SHEET_ID = "PASTE_YOUR_SHEET_ID_HERE";</code> and replace it with your sheet's ID (the long string in your Sheet's URL between <code>/d/</code> and <code>/edit</code>).</div>
+      </div>
+      <div class="step">
+        <div class="num">4</div>
+        <div class="txt">Click <b>Deploy → New deployment</b>. Type: <b>Web app</b>. Execute as: <b>Me</b>. Who has access: <b>Anyone</b>. Click <b>Deploy</b> and authorize permissions when prompted.</div>
+      </div>
+      <div class="step">
+        <div class="num">5</div>
+        <div class="txt">Copy the <b>Web app URL</b> you get (ends in <code>/exec</code>) and paste it below, then click Connect.</div>
+      </div>
+    </div>
+
+    <div class="form-grid" style="margin-top:20px; grid-template-columns:1fr;">
+      <div class="field">
+        <label>Google Apps Script Web App URL</label>
+        <input type="text" id="scriptUrl" placeholder="https://script.google.com/macros/s/XXXXXXX/exec">
+      </div>
+    </div>
+    <div class="actions-row">
+      <button class="btn btn-primary" onclick="connectSheet()">🔗 Connect</button>
+      <button class="btn btn-secondary" onclick="disconnectSheet()">Disconnect</button>
+      <button class="btn btn-secondary" onclick="downloadScript()">⬇ Download apps-script.gs</button>
+    </div>
+    <p style="margin-top:14px; font-size:12px; color:var(--muted)" id="setupStatus"></p>
+  </div>
+
+  <div class="card">
+    <h3>How colleagues use this</h3>
+    <p style="font-size:14px; color:var(--text); margin-bottom:8px;">Once connected and this file is published on GitHub Pages, share the page link with colleagues. The connection URL is saved inside this HTML file itself — so as long as everyone opens the same published page, they're automatically connected to the same shared sheet. No setup needed on their end.</p>
+    <p style="font-size:13px; color:var(--muted);">Tip: After connecting here, re-export this HTML (it auto-saves the URL in your browser) — or simply hardcode the URL into <code>index.html</code> before publishing so it's baked in for everyone.</p>
+  </div>
+</div>
+
+</div><!-- /container -->
+
+<footer>
+  <div class="logo-line">SALES COMMAND CENTER <span>•</span> System designed &amp; engineered by <span>Towhid</span></div>
+  <div style="margin-top:6px;">Powered by Claude · Built for daily PI tracking, quarterly &amp; annual reporting</div>
+</footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   CONFIG — paste your Apps Script Web App URL here before
+   publishing so everyone shares the same connection.
+   ============================================================ */
+let SCRIPT_URL = localStorage.getItem('sheetScriptUrl') || "https://script.google.com/macros/s/AKfycbwmqP4LrIM9_Z9VofluBGpMx348cbTASVRODbptMEj9r9TFy1wfs5ob4AeyM9Na3Fnn/exec";
+
+let records = [];
+let charts = {};
+
+/* ---------- Navigation ---------- */
+document.querySelectorAll('.nav-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('view-'+btn.dataset.view).classList.add('active');
+    if(btn.dataset.view==='dashboard') renderDashboard();
+    if(btn.dataset.view==='records') renderTable();
+  });
+});
+
+/* ---------- Toast ---------- */
+function toast(msg, type='ok'){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + type;
+  setTimeout(()=>t.classList.remove('show'), 3000);
+}
+
+/* ---------- Sync status ---------- */
+function setSyncStatus(state, text){
+  const dot = document.getElementById('syncDot');
+  const txt = document.getElementById('syncText');
+  dot.className = 'sync-dot' + (state==='live' ? ' live' : state==='err' ? ' err' : '');
+  txt.textContent = text;
+}
+
+/* ---------- Connection ---------- */
+function connectSheet(){
+  const url = document.getElementById('scriptUrl').value.trim();
+  if(!url){ toast('Please paste the Web App URL', 'err'); return; }
+  SCRIPT_URL = url;
+  localStorage.setItem('sheetScriptUrl', url);
+  document.getElementById('setupStatus').textContent = 'Connected. Loading data...';
+  refreshData();
+}
+function disconnectSheet(){
+  SCRIPT_URL = "";
+  localStorage.removeItem('sheetScriptUrl');
+  setSyncStatus('off','Not connected');
+  document.getElementById('setupStatus').textContent = 'Disconnected.';
+  toast('Disconnected from Google Sheet');
+}
+
+/* ---------- Data load/save ---------- */
+async function refreshData(){
+  if(!SCRIPT_URL){
+    setSyncStatus('off','Not connected');
+    records = JSON.parse(localStorage.getItem('localRecords')||'[]');
+    renderTable(); renderDashboard();
+    return;
+  }
+  setSyncStatus('','Syncing...');
+  try{
+    const res = await fetch(SCRIPT_URL+'?action=read');
+    const data = await res.json();
+    records = data.records || [];
+    setSyncStatus('live','Connected · Live');
+    document.getElementById('setupStatus').textContent = 'Connected successfully. ' + records.length + ' records loaded.';
+    renderTable(); renderDashboard();
+  }catch(e){
+    setSyncStatus('err','Connection error');
+    toast('Could not reach Google Sheet. Check URL/deployment.', 'err');
+  }
+}
+
+async function pushRecord(rec){
+  if(!SCRIPT_URL){
+    records.push(rec);
+    localStorage.setItem('localRecords', JSON.stringify(records));
+    return true;
+  }
+  try{
+    await fetch(SCRIPT_URL, {
+      method:'POST',
+      headers:{'Content-Type':'text/plain'},
+      body: JSON.stringify({action:'add', record:rec})
+    });
+    return true;
+  }catch(e){
+    toast('Sync failed — saved locally instead.', 'err');
+    records.push(rec);
+    localStorage.setItem('localRecords', JSON.stringify(records));
+    return false;
+  }
+}
+
+async function deleteRemote(rowIndex){
+  if(!SCRIPT_URL) return;
+  try{
+    await fetch(SCRIPT_URL, {
+      method:'POST',
+      headers:{'Content-Type':'text/plain'},
+      body: JSON.stringify({action:'delete', rowIndex:rowIndex})
+    });
+  }catch(e){ toast('Delete sync failed', 'err'); }
+}
+
+/* ---------- Entry form ---------- */
+function clearForm(){
+  ['f_date','f_pino','f_customer','f_buyer','f_itemcode','f_style','f_value','f_sales'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('f_generic').value='Nylon';
+  document.getElementById('f_factory').value='Bangladesh';
+}
+
+async function addRecord(){
+  const rec = {
+    date: document.getElementById('f_date').value,
+    pino: document.getElementById('f_pino').value.trim(),
+    customer: document.getElementById('f_customer').value.trim(),
+    buyer: document.getElementById('f_buyer').value.trim(),
+    itemcode: document.getElementById('f_itemcode').value.trim(),
+    generic: document.getElementById('f_generic').value,
+    style: document.getElementById('f_style').value.trim(),
+    value: parseFloat(document.getElementById('f_value').value) || 0,
+    factory: document.getElementById('f_factory').value,
+    sales: document.getElementById('f_sales').value.trim()
+  };
+  if(!rec.date || !rec.pino || !rec.customer || !rec.value){
+    toast('Please fill at least Date, PI No, Customer and PI Value', 'err');
+    return;
+  }
+  document.getElementById('entryStatus').textContent = 'Saving...';
+  await pushRecord(rec);
+  toast('Record added ✓');
+  document.getElementById('entryStatus').textContent = 'Saved! Refreshing data...';
+  clearForm();
+  await refreshData();
+  document.getElementById('entryStatus').textContent = 'Ready for next entry.';
+}
+
+/* ---------- Table ---------- */
+function genericTag(g){
+  const cls = g==='Nylon'?'tag-nylon':g==='Metal'?'tag-metal':'tag-vislon';
+  return `<span class="tag ${cls}">${g}</span>`;
+}
+function renderTable(){
+  const tbody = document.getElementById('tableBody');
+  const search = (document.getElementById('searchBox')?.value || '').toLowerCase();
+  let rows = records.filter(r=>{
+    if(!search) return true;
+    return [r.pino,r.customer,r.buyer,r.sales,r.itemcode,r.style].join(' ').toLowerCase().includes(search);
+  });
+  if(rows.length===0){
+    tbody.innerHTML = '';
+    document.getElementById('emptyState').style.display='block';
+    return;
+  }
+  document.getElementById('emptyState').style.display='none';
+  tbody.innerHTML = rows.map((r,i)=>`
+    <tr>
+      <td>${r.date||''}</td>
+      <td>${r.pino||''}</td>
+      <td>${r.customer||''}</td>
+      <td>${r.buyer||''}</td>
+      <td>${r.itemcode||''}</td>
+      <td>${genericTag(r.generic||'Nylon')}</td>
+      <td>${r.style||''}</td>
+      <td>$${Number(r.value||0).toLocaleString(undefined,{minimumFractionDigits:2})}</td>
+      <td><span class="tag tag-factory">${r.factory||''}</span></td>
+      <td>${r.sales||''}</td>
+      <td><button class="row-del" onclick="removeRecord(${i})">Delete</button></td>
+    </tr>
+  `).join('');
+}
+
+async function removeRecord(localIndex){
+  if(!confirm('Delete this record? This cannot be undone.')) return;
+  const rec = getFilteredRecords()[localIndex];
+  const realIndex = records.indexOf(rec);
+  records.splice(realIndex,1);
+  if(SCRIPT_URL){
+    await deleteRemote(realIndex+2); // +2 because sheet rows are 1-indexed + header row
+  }else{
+    localStorage.setItem('localRecords', JSON.stringify(records));
+  }
+  renderTable(); renderDashboard();
+  toast('Record deleted');
+  await refreshData();
+}
+function getFilteredRecords(){
+  const search = (document.getElementById('searchBox')?.value || '').toLowerCase();
+  return records.filter(r=>{
+    if(!search) return true;
+    return [r.pino,r.customer,r.buyer,r.sales,r.itemcode,r.style].join(' ').toLowerCase().includes(search);
+  });
+}
+
+/* ---------- Filtering for dashboard ---------- */
+function getDateRange(){
+  const period = document.getElementById('periodFilter').value;
+  const now = new Date();
+  let from=null, to=null;
+  if(period==='month'){
+    from = new Date(now.getFullYear(), now.getMonth(), 1);
+    to = new Date(now.getFullYear(), now.getMonth()+1, 0);
+  }else if(period==='quarter'){
+    const q = Math.floor(now.getMonth()/3);
+    from = new Date(now.getFullYear(), q*3, 1);
+    to = new Date(now.getFullYear(), q*3+3, 0);
+  }else if(period==='half'){
+    const h = now.getMonth()<6?0:6;
+    from = new Date(now.getFullYear(), h, 1);
+    to = new Date(now.getFullYear(), h+6, 0);
+  }else if(period==='year'){
+    from = new Date(now.getFullYear(),0,1);
+    to = new Date(now.getFullYear(),11,31);
+  }else if(period==='custom'){
+    const f = document.getElementById('dateFrom').value;
+    const t = document.getElementById('dateTo').value;
+    if(f) from = new Date(f);
+    if(t) to = new Date(t);
+  }
+  return {from, to};
+}
+
+document.getElementById('periodFilter').addEventListener('change', e=>{
+  const isCustom = e.target.value==='custom';
+  document.getElementById('customFrom').style.display = isCustom?'block':'none';
+  document.getElementById('customTo').style.display = isCustom?'block':'none';
+});
+
+function applyFilters(){ renderDashboard(); }
+
+function getFilteredForDashboard(){
+  const {from,to} = getDateRange();
+  const factory = document.getElementById('factoryFilter').value;
+  const item = document.getElementById('itemFilter').value;
+  return records.filter(r=>{
+    if(!r.date) return false;
+    const d = new Date(r.date);
+    if(from && d < from) return false;
+    if(to && d > to) return false;
+    if(factory!=='all' && r.factory!==factory) return false;
+    if(item!=='all' && r.generic!==item) return false;
+    return true;
+  });
+}
+
+/* ---------- Dashboard rendering ---------- */
+function renderDashboard(){
+  const data = getFilteredForDashboard();
+  const total = data.reduce((s,r)=>s+Number(r.value||0),0);
+  document.getElementById('kpiTotal').textContent = '$'+total.toLocaleString(undefined,{maximumFractionDigits:0});
+  document.getElementById('kpiTotalSub').textContent = data.length+' PIs in selection';
+  document.getElementById('kpiOrders').textContent = data.length;
+  document.getElementById('kpiAvg').textContent = '$'+(data.length?Math.round(total/data.length):0).toLocaleString();
+
+  // Top sales person
+  const bySales = groupSum(data,'sales');
+  const topSales = topEntry(bySales);
+  document.getElementById('kpiTopSales').textContent = topSales[0] || '—';
+  document.getElementById('kpiTopSalesSub').textContent = topSales[1]!==undefined ? '$'+topSales[1].toLocaleString() : 'no data';
+
+  // Top customer
+  const byCustomer = groupSum(data,'customer');
+  const topCust = topEntry(byCustomer);
+  document.getElementById('kpiTopCustomer').textContent = topCust[0] || '—';
+  document.getElementById('kpiTopCustomerSub').textContent = topCust[1]!==undefined ? '$'+topCust[1].toLocaleString() : 'no data';
+
+  renderTrendChart(data);
+  renderItemChart(data);
+  renderFactoryChart(data);
+  renderSalesChart(data);
+  renderCustomerChart(data);
+}
+
+function groupSum(data, key){
+  const map = {};
+  data.forEach(r=>{
+    const k = r[key]||'Unknown';
+    map[k] = (map[k]||0) + Number(r.value||0);
+  });
+  return map;
+}
+function topEntry(map){
+  let bestK=null, bestV=-1;
+  for(const k in map){ if(map[k]>bestV){bestV=map[k]; bestK=k;} }
+  return [bestK, bestV<0?undefined:bestV];
+}
+
+const palette = ['#ff7a45','#5b8def','#3ddc97','#f7c948','#c792ea','#ff5d6c','#4dd0e1','#a3e635'];
+
+function destroy(id){ if(charts[id]){ charts[id].destroy(); } }
+
+function renderTrendChart(data){
+  destroy('trend');
+  // group by month
+  const map = {};
+  data.forEach(r=>{
+    if(!r.date) return;
+    const d = new Date(r.date);
+    const key = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+    map[key] = (map[key]||0) + Number(r.value||0);
+  });
+  const labels = Object.keys(map).sort();
+  const values = labels.map(l=>map[l]);
+  charts.trend = new Chart(document.getElementById('chartTrend'), {
+    type:'line',
+    data:{ labels, datasets:[{
+      label:'PI Value', data: values, borderColor:'#ff7a45',
+      backgroundColor:'rgba(255,122,69,0.12)', fill:true, tension:0.35, pointRadius:3, pointBackgroundColor:'#ff7a45'
+    }]},
+    options: baseOptions(true)
+  });
+}
+
+function renderItemChart(data){
+  destroy('item');
+  const map = groupSum(data,'generic');
+  charts.item = new Chart(document.getElementById('chartItem'), {
+    type:'doughnut',
+    data:{ labels:Object.keys(map), datasets:[{ data:Object.values(map), backgroundColor:palette, borderWidth:0 }]},
+    options:{ ...baseOptions(false), cutout:'62%', plugins:{...legendStyle(), } }
+  });
+}
+
+function renderFactoryChart(data){
+  destroy('factory');
+  const map = groupSum(data,'factory');
+  charts.factory = new Chart(document.getElementById('chartFactory'), {
+    type:'bar',
+    data:{ labels:Object.keys(map), datasets:[{ label:'PI Value', data:Object.values(map), backgroundColor:palette, borderRadius:6 }]},
+    options: baseOptions(true)
+  });
+}
+
+function renderSalesChart(data){
+  destroy('sales');
+  const map = groupSum(data,'sales');
+  const labels = Object.keys(map);
+  const values = Object.values(map);
+  charts.sales = new Chart(document.getElementById('chartSales'), {
+    type:'bar',
+    data:{ labels, datasets:[{ label:'PI Value', data:values, backgroundColor:'#5b8def', borderRadius:6 }]},
+    options:{ ...baseOptions(true), indexAxis:'y' }
+  });
+}
+
+function renderCustomerChart(data){
+  destroy('customer');
+  const map = groupSum(data,'customer');
+  const sorted = Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  charts.customer = new Chart(document.getElementById('chartCustomer'), {
+    type:'bar',
+    data:{ labels:sorted.map(s=>s[0]), datasets:[{ label:'PI Value', data:sorted.map(s=>s[1]), backgroundColor:'#3ddc97', borderRadius:6 }]},
+    options: baseOptions(true)
+  });
+}
+
+function baseOptions(showGrid){
+  return {
+    responsive:true, maintainAspectRatio:false,
+    plugins:{
+      legend:{ display:false, labels:{ color:'#7c8aa3' } },
+      tooltip:{ backgroundColor:'#0f1623', borderColor:'#1f2c42', borderWidth:1, titleColor:'#e7ecf5', bodyColor:'#e7ecf5', padding:10 }
+    },
+    scales:{
+      x:{ grid:{ color: showGrid?'#1f2c42':'transparent', display:showGrid }, ticks:{ color:'#7c8aa3', font:{size:11} } },
+      y:{ grid:{ color:'#1f2c42' }, ticks:{ color:'#7c8aa3', font:{size:11} } }
+    }
+  };
+}
+function legendStyle(){
+  return { legend:{ display:true, position:'bottom', labels:{ color:'#7c8aa3', boxWidth:12, padding:14, font:{size:11} } } };
+}
+
+/* ---------- Exports ---------- */
+function exportExcel(){
+  const data = getFilteredForDashboard();
+  if(data.length===0){ toast('No data in current filter to export','err'); return; }
+  const rows = data.map(r=>({
+    'PI Date': r.date, 'Proforma Invoice No': r.pino, 'Customer Name': r.customer, 'Buyer Name': r.buyer,
+    'Item Code': r.itemcode, 'Generic Item': r.generic, 'Style Reference': r.style,
+    'PI Value (USD)': r.value, 'Factory': r.factory, 'Sales Person Name': r.sales
+  }));
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Sales Report');
+  XLSX.writeFile(wb, 'sales_report_'+new Date().toISOString().slice(0,10)+'.xlsx');
+  toast('Excel exported ✓');
+}
+
+function exportPDF(){
+  const data = getFilteredForDashboard();
+  if(data.length===0){ toast('No data in current filter to export','err'); return; }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({orientation:'landscape'});
+  const total = data.reduce((s,r)=>s+Number(r.value||0),0);
+
+  doc.setFontSize(16);
+  doc.text('Sales Report', 14, 16);
+  doc.setFontSize(10);
+  doc.text('Generated: '+new Date().toLocaleString(), 14, 22);
+  doc.text('Total PI Value: $'+total.toLocaleString(undefined,{minimumFractionDigits:2})+'   |   Total PIs: '+data.length, 14, 28);
+
+  doc.autoTable({
+    startY:34,
+    head:[['PI Date','PI No','Customer','Buyer','Item Code','Generic','Style Ref','PI Value (USD)','Factory','Sales Person']],
+    body:data.map(r=>[r.date,r.pino,r.customer,r.buyer,r.itemcode,r.generic,r.style,'$'+Number(r.value||0).toLocaleString(undefined,{minimumFractionDigits:2}),r.factory,r.sales]),
+    styles:{ fontSize:8 },
+    headStyles:{ fillColor:[15,22,35] }
+  });
+
+  doc.setFontSize(8);
+  doc.text('Sales Command Center — System designed & engineered by Towhid', 14, doc.internal.pageSize.height-8);
+
+  doc.save('sales_report_'+new Date().toISOString().slice(0,10)+'.pdf');
+  toast('PDF exported ✓');
+}
+
+/* ---------- Apps Script downloader ---------- */
+function downloadScript(){
+  const code = `function doGet(e) {
+  var sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName('Sales');
+  var data = sheet.getDataRange().getValues();
+  var headers = data.shift();
+  var records = data.map(function(row){
+    return {
+      date: formatDate(row[0]),
+      pino: row[1],
+      customer: row[2],
+      buyer: row[3],
+      itemcode: row[4],
+      generic: row[5],
+      style: row[6],
+      value: row[7],
+      factory: row[8],
+      sales: row[9]
+    };
+  });
+  return ContentService.createTextOutput(JSON.stringify({records: records}))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function doPost(e) {
+  var sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName('Sales');
+  var body = JSON.parse(e.postData.contents);
+
+  if (body.action === 'add') {
+    var r = body.record;
+    sheet.appendRow([r.date, r.pino, r.customer, r.buyer, r.itemcode, r.generic, r.style, r.value, r.factory, r.sales]);
+  } else if (body.action === 'delete') {
+    sheet.deleteRow(body.rowIndex);
+  }
+
+  return ContentService.createTextOutput(JSON.stringify({status:'ok'}))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function formatDate(d) {
+  if (Object.prototype.toString.call(d) === '[object Date]') {
+    return Utilities.formatDate(d, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  }
+  return d;
+}
+
+// === REPLACE THIS WITH YOUR GOOGLE SHEET ID (from its URL between /d/ and /edit) ===
+const SHEET_ID = "PASTE_YOUR_SHEET_ID_HERE";
+`;
+  const blob = new Blob([code], {type:'text/plain'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'apps-script.gs';
+  a.click();
+  toast('apps-script.gs downloaded ✓');
+}
+
+/* ---------- Init ---------- */
+window.addEventListener('DOMContentLoaded', ()=>{
+  document.getElementById('f_date').valueAsDate = new Date();
+  if(SCRIPT_URL){
+    document.getElementById('scriptUrl').value = SCRIPT_URL;
+  }
+  refreshData();
+});
+</script>
+
+</body>
+</html>
