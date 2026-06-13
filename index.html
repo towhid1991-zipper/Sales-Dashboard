@@ -434,7 +434,7 @@ footer .logo-line span{ color:var(--accent); }
       </div>
     </div>
     <div class="actions-row">
-      <button class="btn btn-primary" onclick="addRecord()">＋ Add Record</button>
+      <button class="btn btn-primary" id="addBtn" onclick="addRecord()">＋ Add Record</button>
       <button class="btn btn-secondary" onclick="clearForm()">Clear Form</button>
     </div>
     <p style="margin-top:14px; font-size:12px; color:var(--muted)" id="entryStatus"></p>
@@ -546,6 +546,7 @@ let SCRIPT_URL = localStorage.getItem('sheetScriptUrl') || "https://script.googl
 
 let records = [];
 let charts = {};
+let editingRowIndex = null; // sheet row index being edited (null = new entry)
 
 /* ---------- Navigation ---------- */
 document.querySelectorAll('.nav-btn').forEach(btn=>{
@@ -651,6 +652,9 @@ function clearForm(){
   ['f_date','f_pino','f_customer','f_buyer','f_itemcode','f_style','f_value','f_sales'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('f_generic').value='Nylon';
   document.getElementById('f_factory').value='Bangladesh';
+  editingRowIndex = null;
+  document.getElementById('addBtn').textContent = '＋ Add Record';
+  document.getElementById('entryStatus').textContent = '';
 }
 
 async function addRecord(){
@@ -670,6 +674,34 @@ async function addRecord(){
     toast('Please fill at least Date, PI No, Customer and PI Value', 'err');
     return;
   }
+
+  if(editingRowIndex !== null){
+    // UPDATE existing record
+    document.getElementById('entryStatus').textContent = 'Updating...';
+    if(SCRIPT_URL){
+      try{
+        await fetch(SCRIPT_URL, {
+          method:'POST',
+          headers:{'Content-Type':'text/plain'},
+          body: JSON.stringify({action:'update', rowIndex: editingRowIndex, record: rec})
+        });
+      }catch(e){ toast('Update sync failed', 'err'); }
+    }else{
+      const idx = editingRowIndex - 2;
+      records[idx] = rec;
+      localStorage.setItem('localRecords', JSON.stringify(records));
+    }
+    toast('Record updated ✓');
+    document.getElementById('entryStatus').textContent = 'Updated! Refreshing data...';
+    editingRowIndex = null;
+    document.getElementById('addBtn').textContent = '＋ Add Record';
+    clearForm();
+    await refreshData();
+    document.getElementById('entryStatus').textContent = 'Ready for next entry.';
+    return;
+  }
+
+  // ADD new record
   document.getElementById('entryStatus').textContent = 'Saving...';
   await pushRecord(rec);
   toast('Record added ✓');
@@ -677,6 +709,33 @@ async function addRecord(){
   clearForm();
   await refreshData();
   document.getElementById('entryStatus').textContent = 'Ready for next entry.';
+}
+
+function editRecord(localIndex){
+  const rec = getFilteredRecords()[localIndex];
+  const realIndex = records.indexOf(rec);
+  editingRowIndex = realIndex + 2; // sheet row (1-indexed + header)
+
+  document.getElementById('f_date').value = rec.date || '';
+  document.getElementById('f_pino').value = rec.pino || '';
+  document.getElementById('f_customer').value = rec.customer || '';
+  document.getElementById('f_buyer').value = rec.buyer || '';
+  document.getElementById('f_itemcode').value = rec.itemcode || '';
+  document.getElementById('f_generic').value = rec.generic || 'Nylon';
+  document.getElementById('f_style').value = rec.style || '';
+  document.getElementById('f_value').value = rec.value || '';
+  document.getElementById('f_factory').value = rec.factory || 'Bangladesh';
+  document.getElementById('f_sales').value = rec.sales || '';
+
+  document.getElementById('addBtn').textContent = '✓ Save Changes';
+  document.getElementById('entryStatus').textContent = 'Editing existing record — make changes and click "Save Changes".';
+
+  // switch to entry view
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.querySelector('.nav-btn[data-view="entry"]').classList.add('active');
+  document.getElementById('view-entry').classList.add('active');
+  window.scrollTo({top:0, behavior:'smooth'});
 }
 
 /* ---------- Table ---------- */
@@ -709,7 +768,10 @@ function renderTable(){
       <td>$${Number(r.value||0).toLocaleString(undefined,{minimumFractionDigits:2})}</td>
       <td><span class="tag tag-factory">${r.factory||''}</span></td>
       <td>${r.sales||''}</td>
-      <td><button class="row-del" onclick="removeRecord(${i})">Delete</button></td>
+      <td>
+        <button class="row-del" style="color:var(--accent-3)" onclick="editRecord(${i})">Edit</button>
+        <button class="row-del" onclick="removeRecord(${i})">Delete</button>
+      </td>
     </tr>
   `).join('');
 }
@@ -1003,6 +1065,10 @@ function doPost(e) {
   if (body.action === 'add') {
     var r = body.record;
     sheet.appendRow([r.date, r.pino, r.customer, r.buyer, r.itemcode, r.generic, r.style, r.value, r.factory, r.sales]);
+  } else if (body.action === 'update') {
+    var r = body.record;
+    var rowIndex = body.rowIndex;
+    sheet.getRange(rowIndex, 1, 1, 10).setValues([[r.date, r.pino, r.customer, r.buyer, r.itemcode, r.generic, r.style, r.value, r.factory, r.sales]]);
   } else if (body.action === 'delete') {
     sheet.deleteRow(body.rowIndex);
   }
