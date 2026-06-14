@@ -1252,7 +1252,7 @@ function populateYearDropdowns(){
 
 function getAchievement(salesperson, year, month){
   return records.reduce((sum,r)=>{
-    if(r.sales !== salesperson) return sum;
+    if(String(r.sales).trim().toLowerCase() !== String(salesperson).trim().toLowerCase()) return sum;
     const d = parseDate(r.date);
     if(!d) return sum;
     if(d.getFullYear() !== Number(year)) return sum;
@@ -1261,8 +1261,23 @@ function getAchievement(salesperson, year, month){
   }, 0);
 }
 
+const MONTH_NAMES_GLOBAL = ['','January','February','March','April','May','June','July','August','September','October','November','December'];
+
+function monthToNumber(m){
+  if(m===null || m===undefined || m==='') return null;
+  const n = Number(m);
+  if(!isNaN(n) && n>=1 && n<=12) return n;
+  const idx = MONTH_NAMES_GLOBAL.findIndex(name=>name && name.toLowerCase()===String(m).trim().toLowerCase());
+  return idx>0 ? idx : null;
+}
+
 function getTargetValue(salesperson, year, month){
-  const t = targets.find(t=>t.salesperson===salesperson && Number(t.year)===Number(year) && Number(t.month)===Number(month));
+  const monthNum = monthToNumber(month);
+  const t = targets.find(t=>
+    String(t.salesperson).trim().toLowerCase() === String(salesperson).trim().toLowerCase() &&
+    Number(t.year)===Number(year) &&
+    monthToNumber(t.month)===monthNum
+  );
   return t ? Number(t.target||0) : 0;
 }
 
@@ -1411,8 +1426,6 @@ async function addTarget(){
   renderTargetsTable();
 }
 
-const MONTH_NAMES = ['','January','February','March','April','May','June','July','August','September','October','November','December'];
-
 function renderTargetsTable(){
   const tbody = document.getElementById('targetsBody');
   if(targets.length===0){
@@ -1425,7 +1438,7 @@ function renderTargetsTable(){
     <tr>
       <td>${t.salesperson||''}</td>
       <td>${t.year||''}</td>
-      <td>${MONTH_NAMES[Number(t.month)]||t.month}</td>
+      <td>${MONTH_NAMES_GLOBAL[monthToNumber(t.month)]||t.month}</td>
       <td>$${Number(t.target||0).toLocaleString(undefined,{minimumFractionDigits:2})}</td>
       <td>
         <button class="row-del" style="color:var(--accent-3)" onclick="editTarget(${i})">Edit</button>
