@@ -815,6 +815,25 @@ function getFilteredRecords(){
 }
 
 /* ---------- Filtering for dashboard ---------- */
+function parseDate(str){
+  if(!str) return null;
+  // ISO format YYYY-MM-DD (or with time)
+  if(/^\d{4}-\d{1,2}-\d{1,2}/.test(str)){
+    const d = new Date(str);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  // DD-MM-YYYY or DD/MM/YYYY (Bangladesh-style)
+  const m = String(str).match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if(m){
+    const day = parseInt(m[1],10), month = parseInt(m[2],10), year = parseInt(m[3],10);
+    const d = new Date(year, month-1, day);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  // Fallback to native parser
+  const d = new Date(str);
+  return isNaN(d.getTime()) ? null : d;
+}
+
 function getDateRange(){
   const period = document.getElementById('periodFilter').value;
   const now = new Date();
@@ -856,8 +875,8 @@ function getFilteredForDashboard(){
   const item = document.getElementById('itemFilter').value;
   const sales = document.getElementById('salesFilter').value;
   return records.filter(r=>{
-    if(!r.date) return false;
-    const d = new Date(r.date);
+    const d = parseDate(r.date);
+    if(!d) return false;
     if(from && d < from) return false;
     if(to && d > to) return false;
     if(factory!=='all' && r.factory!==factory) return false;
@@ -940,8 +959,8 @@ function renderTrendChart(data){
   // group by month
   const map = {};
   data.forEach(r=>{
-    if(!r.date) return;
-    const d = new Date(r.date);
+    const d = parseDate(r.date);
+    if(!d) return;
     const key = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
     map[key] = (map[key]||0) + Number(r.value||0);
   });
@@ -1021,8 +1040,8 @@ function legendStyle(){
 function getBreakdowns(data){
   const trendMap = {};
   data.forEach(r=>{
-    if(!r.date) return;
-    const d = new Date(r.date);
+    const d = parseDate(r.date);
+    if(!d) return;
     const key = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
     trendMap[key] = (trendMap[key]||0) + Number(r.value||0);
   });
