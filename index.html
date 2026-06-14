@@ -255,6 +255,7 @@ footer .logo-line span{ color:var(--accent); }
     <button class="nav-btn active" data-view="dashboard">Dashboard</button>
     <button class="nav-btn" data-view="entry">Daily Entry</button>
     <button class="nav-btn" data-view="records">All Records</button>
+    <button class="nav-btn" data-view="targets">Targets</button>
   </nav>
   <div class="sync-pill">
     <div class="sync-dot" id="syncDot"></div>
@@ -350,6 +351,71 @@ footer .logo-line span{ color:var(--accent); }
       <div class="label">New Sales</div>
       <div class="value" id="kpiNewSales">0</div>
       <div class="delta" id="kpiNewSalesSub">new customer/buyer PIs</div>
+    </div>
+  </div>
+
+  <!-- Target vs Achievement -->
+  <div class="card">
+    <h3>Target vs Achievement <span>(monthly, per sales person)</span></h3>
+    <div class="filters" style="margin-bottom:14px;">
+      <div class="field">
+        <label>Year</label>
+        <select id="taYear"></select>
+      </div>
+      <div class="field">
+        <label>Month</label>
+        <select id="taMonth">
+          <option value="1">January</option>
+          <option value="2">February</option>
+          <option value="3">March</option>
+          <option value="4">April</option>
+          <option value="5">May</option>
+          <option value="6">June</option>
+          <option value="7">July</option>
+          <option value="8">August</option>
+          <option value="9">September</option>
+          <option value="10">October</option>
+          <option value="11">November</option>
+          <option value="12">December</option>
+        </select>
+      </div>
+      <button class="btn btn-secondary" onclick="renderTargetSection()">Apply</button>
+    </div>
+    <div class="table-wrap" style="max-height:none;">
+      <table>
+        <thead>
+          <tr>
+            <th>Sales Person</th><th>Target (USD)</th><th>Achievement (USD)</th>
+            <th>Remaining (USD)</th><th>Remaining (%)</th><th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="taBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="chart-grid">
+    <div class="card">
+      <h3>Target vs Achievement <span>(selected month, chart view)</span></h3>
+      <div class="chart-box"><canvas id="chartTargetAch"></canvas></div>
+    </div>
+    <div class="card">
+      <h3>Annual Growth <span>(Target vs Achievement, full year)</span></h3>
+      <div class="filters" style="margin-bottom:10px;">
+        <div class="field">
+          <label>Year</label>
+          <select id="growthYear"></select>
+        </div>
+        <button class="btn btn-secondary" onclick="renderGrowthSection()">Apply</button>
+      </div>
+      <div class="table-wrap" style="max-height:240px;">
+        <table>
+          <thead>
+            <tr><th>Sales Person</th><th>Annual Target</th><th>Annual Achievement</th><th>Growth</th></tr>
+          </thead>
+          <tbody id="growthBody"></tbody>
+        </table>
+      </div>
     </div>
   </div>
 
@@ -493,7 +559,69 @@ footer .logo-line span{ color:var(--accent); }
   </div>
 </div>
 
-<!-- ===================== SETUP VIEW ===================== -->
+<!-- ===================== TARGETS VIEW ===================== -->
+<div class="view" id="view-targets">
+  <div class="page-head">
+    <h2>Sales Targets</h2>
+    <p>Set monthly PI value targets for each sales person. These power the Target vs Achievement and Annual Growth sections on the Dashboard.</p>
+  </div>
+
+  <div class="card">
+    <div class="form-grid">
+      <div class="field">
+        <label>Sales Person Name</label>
+        <input type="text" id="t_sales" placeholder="e.g. Towhid Ahmed">
+      </div>
+      <div class="field">
+        <label>Year</label>
+        <input type="number" id="t_year" placeholder="e.g. 2026" min="2000" max="2100">
+      </div>
+      <div class="field">
+        <label>Month</label>
+        <select id="t_month">
+          <option value="1">January</option>
+          <option value="2">February</option>
+          <option value="3">March</option>
+          <option value="4">April</option>
+          <option value="5">May</option>
+          <option value="6">June</option>
+          <option value="7">July</option>
+          <option value="8">August</option>
+          <option value="9">September</option>
+          <option value="10">October</option>
+          <option value="11">November</option>
+          <option value="12">December</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Target Value (USD)</label>
+        <input type="number" step="0.01" id="t_value" placeholder="e.g. 50000">
+      </div>
+    </div>
+    <div class="actions-row">
+      <button class="btn btn-primary" id="targetBtn" onclick="addTarget()">＋ Add Target</button>
+      <button class="btn btn-secondary" onclick="clearTargetForm()">Clear Form</button>
+    </div>
+    <p style="margin-top:14px; font-size:12px; color:var(--muted)" id="targetStatus"></p>
+  </div>
+
+  <div class="card">
+    <h3>All Targets</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Sales Person</th><th>Year</th><th>Month</th><th>Target (USD)</th><th></th></tr>
+        </thead>
+        <tbody id="targetsBody"></tbody>
+      </table>
+    </div>
+    <div class="empty" id="targetsEmpty" style="display:none">
+      <div class="big">🎯</div>
+      <h4>No targets set yet</h4>
+      <p>Use the form above to set monthly targets for each sales person.</p>
+    </div>
+  </div>
+</div>
 <div class="view" id="view-setup">
   <div class="page-head">
     <h2>Setup &amp; Connection</h2>
@@ -564,8 +692,10 @@ footer .logo-line span{ color:var(--accent); }
 let SCRIPT_URL = localStorage.getItem('sheetScriptUrl') || "https://script.google.com/macros/s/AKfycbwmqP4LrIM9_Z9VofluBGpMx348cbTASVRODbptMEj9r9TFy1wfs5ob4AeyM9Na3Fnn/exec";
 
 let records = [];
+let targets = [];
 let charts = {};
 let editingRowIndex = null; // sheet row index being edited (null = new entry)
+let editingTargetRowIndex = null;
 
 /* ---------- Navigation ---------- */
 document.querySelectorAll('.nav-btn').forEach(btn=>{
@@ -576,6 +706,7 @@ document.querySelectorAll('.nav-btn').forEach(btn=>{
     document.getElementById('view-'+btn.dataset.view).classList.add('active');
     if(btn.dataset.view==='dashboard') renderDashboard();
     if(btn.dataset.view==='records') renderTable();
+    if(btn.dataset.view==='targets') renderTargetsTable();
   });
 });
 
@@ -617,7 +748,8 @@ async function refreshData(){
   if(!SCRIPT_URL){
     setSyncStatus('off','Not connected');
     records = JSON.parse(localStorage.getItem('localRecords')||'[]');
-    renderTable(); renderDashboard();
+    targets = JSON.parse(localStorage.getItem('localTargets')||'[]');
+    renderTable(); renderDashboard(); renderTargetsTable();
     return;
   }
   setSyncStatus('','Syncing...');
@@ -625,9 +757,10 @@ async function refreshData(){
     const res = await fetch(SCRIPT_URL+'?action=read');
     const data = await res.json();
     records = data.records || [];
+    targets = data.targets || [];
     setSyncStatus('live','Connected · Live');
     document.getElementById('setupStatus').textContent = 'Connected successfully. ' + records.length + ' records loaded.';
-    renderTable(); renderDashboard();
+    renderTable(); renderDashboard(); renderTargetsTable();
   }catch(e){
     setSyncStatus('err','Connection error');
     toast('Could not reach Google Sheet. Check URL/deployment.', 'err');
@@ -662,6 +795,50 @@ async function deleteRemote(rowIndex){
       method:'POST',
       headers:{'Content-Type':'text/plain'},
       body: JSON.stringify({action:'delete', rowIndex:rowIndex})
+    });
+  }catch(e){ toast('Delete sync failed', 'err'); }
+}
+
+/* ---------- Target sync functions ---------- */
+async function pushTarget(t){
+  if(!SCRIPT_URL){
+    targets.push(t);
+    localStorage.setItem('localTargets', JSON.stringify(targets));
+    return true;
+  }
+  try{
+    await fetch(SCRIPT_URL, {
+      method:'POST',
+      headers:{'Content-Type':'text/plain'},
+      body: JSON.stringify({action:'addTarget', target:t})
+    });
+    return true;
+  }catch(e){
+    toast('Sync failed — saved locally instead.', 'err');
+    targets.push(t);
+    localStorage.setItem('localTargets', JSON.stringify(targets));
+    return false;
+  }
+}
+
+async function updateTargetRemote(rowIndex, t){
+  if(!SCRIPT_URL) return;
+  try{
+    await fetch(SCRIPT_URL, {
+      method:'POST',
+      headers:{'Content-Type':'text/plain'},
+      body: JSON.stringify({action:'updateTarget', rowIndex:rowIndex, target:t})
+    });
+  }catch(e){ toast('Update sync failed', 'err'); }
+}
+
+async function deleteTargetRemote(rowIndex){
+  if(!SCRIPT_URL) return;
+  try{
+    await fetch(SCRIPT_URL, {
+      method:'POST',
+      headers:{'Content-Type':'text/plain'},
+      body: JSON.stringify({action:'deleteTarget', rowIndex:rowIndex})
     });
   }catch(e){ toast('Delete sync failed', 'err'); }
 }
@@ -954,6 +1131,10 @@ function renderDashboard(){
   renderFactoryChart(data);
   renderSalesChart(data);
   renderCustomerChart(data);
+
+  populateYearDropdowns();
+  renderTargetSection();
+  renderGrowthSection();
 }
 
 function groupSum(data, key){
@@ -1037,6 +1218,247 @@ function renderCustomerChart(data){
     data:{ labels:sorted.map(s=>s[0]), datasets:[{ label:'PI Value', data:sorted.map(s=>s[1]), backgroundColor:'#3ddc97', borderRadius:6 }]},
     options: baseOptions(true)
   });
+}
+
+/* ============================================================
+   TARGET vs ACHIEVEMENT  /  ANNUAL GROWTH
+   ============================================================ */
+
+function populateYearDropdowns(){
+  const years = new Set();
+  records.forEach(r=>{
+    const d = parseDate(r.date);
+    if(d) years.add(d.getFullYear());
+  });
+  targets.forEach(t=> years.add(Number(t.year)));
+  years.add(new Date().getFullYear());
+
+  const sorted = Array.from(years).sort((a,b)=>b-a);
+
+  ['taYear','growthYear'].forEach(id=>{
+    const sel = document.getElementById(id);
+    const current = sel.value;
+    sel.innerHTML = sorted.map(y=>`<option value="${y}">${y}</option>`).join('');
+    if(sorted.includes(Number(current))) sel.value = current;
+    else sel.value = new Date().getFullYear();
+  });
+
+  const monthSel = document.getElementById('taMonth');
+  if(!monthSel.dataset.init){
+    monthSel.value = (new Date().getMonth()+1);
+    monthSel.dataset.init = '1';
+  }
+}
+
+function getAchievement(salesperson, year, month){
+  return records.reduce((sum,r)=>{
+    if(r.sales !== salesperson) return sum;
+    const d = parseDate(r.date);
+    if(!d) return sum;
+    if(d.getFullYear() !== Number(year)) return sum;
+    if(month && (d.getMonth()+1) !== Number(month)) return sum;
+    return sum + Number(r.value||0);
+  }, 0);
+}
+
+function getTargetValue(salesperson, year, month){
+  const t = targets.find(t=>t.salesperson===salesperson && Number(t.year)===Number(year) && Number(t.month)===Number(month));
+  return t ? Number(t.target||0) : 0;
+}
+
+function getAllSalesPersons(){
+  const fromRecords = records.map(r=>r.sales).filter(Boolean);
+  const fromTargets = targets.map(t=>t.salesperson).filter(Boolean);
+  return Array.from(new Set([...fromRecords, ...fromTargets])).sort();
+}
+
+function renderTargetSection(){
+  const year = document.getElementById('taYear').value;
+  const month = document.getElementById('taMonth').value;
+  const tbody = document.getElementById('taBody');
+  const people = getAllSalesPersons();
+
+  if(people.length===0){
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--muted)">No sales data or targets yet.</td></tr>';
+    destroy('targetAch');
+    return;
+  }
+
+  let rowsHtml = '';
+  const chartLabels = [], chartTarget = [], chartAch = [];
+
+  people.forEach(person=>{
+    const target = getTargetValue(person, year, month);
+    const achievement = getAchievement(person, year, month);
+    const remaining = target - achievement;
+    const remainingPct = target>0 ? (remaining/target*100) : null;
+
+    let status, statusClass;
+    if(target===0){
+      status = 'No target set'; statusClass='tag-factory';
+    }else if(achievement >= target){
+      status = 'Target Achieved ✓'; statusClass='tag-vislon';
+    }else if(remainingPct <= 25){
+      status = 'On Track'; statusClass='tag-nylon';
+    }else{
+      status = 'Behind'; statusClass='tag-metal';
+    }
+
+    rowsHtml += `<tr>
+      <td>${person}</td>
+      <td>${target ? '$'+target.toLocaleString(undefined,{minimumFractionDigits:2}) : '—'}</td>
+      <td>$${achievement.toLocaleString(undefined,{minimumFractionDigits:2})}</td>
+      <td>${target ? '$'+Math.max(remaining,0).toLocaleString(undefined,{minimumFractionDigits:2}) : '—'}</td>
+      <td>${target ? remainingPct.toFixed(1)+'%' : '—'}</td>
+      <td><span class="tag ${statusClass}">${status}</span></td>
+    </tr>`;
+
+    chartLabels.push(person);
+    chartTarget.push(target);
+    chartAch.push(achievement);
+  });
+
+  tbody.innerHTML = rowsHtml;
+
+  destroy('targetAch');
+  charts.targetAch = new Chart(document.getElementById('chartTargetAch'), {
+    type:'bar',
+    data:{
+      labels: chartLabels,
+      datasets:[
+        { label:'Target', data: chartTarget, backgroundColor:'rgba(91,141,239,0.35)', borderColor:'#5b8def', borderWidth:1, borderRadius:6 },
+        { label:'Achievement', data: chartAch, backgroundColor:'#3ddc97', borderRadius:6 }
+      ]
+    },
+    options: { ...baseOptions(true), ...legendStyle() }
+  });
+}
+
+function renderGrowthSection(){
+  const year = document.getElementById('growthYear').value;
+  const tbody = document.getElementById('growthBody');
+  const people = getAllSalesPersons();
+
+  if(people.length===0){
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--muted)">No sales data or targets yet.</td></tr>';
+    return;
+  }
+
+  let rowsHtml = '';
+  people.forEach(person=>{
+    let annualTarget = 0;
+    for(let m=1;m<=12;m++) annualTarget += getTargetValue(person, year, m);
+    const annualAchievement = getAchievement(person, year, null);
+    let growthHtml;
+    if(annualTarget===0){
+      growthHtml = '<span class="tag tag-factory">No target</span>';
+    }else{
+      const growthPct = ((annualAchievement - annualTarget)/annualTarget)*100;
+      const cls = growthPct>=0 ? 'tag-vislon' : 'tag-metal';
+      const sign = growthPct>=0 ? '+' : '';
+      growthHtml = `<span class="tag ${cls}">${sign}${growthPct.toFixed(1)}%</span>`;
+    }
+    rowsHtml += `<tr>
+      <td>${person}</td>
+      <td>${annualTarget ? '$'+annualTarget.toLocaleString(undefined,{minimumFractionDigits:0}) : '—'}</td>
+      <td>$${annualAchievement.toLocaleString(undefined,{minimumFractionDigits:0})}</td>
+      <td>${growthHtml}</td>
+    </tr>`;
+  });
+  tbody.innerHTML = rowsHtml;
+}
+
+/* ---------- Targets management view ---------- */
+function clearTargetForm(){
+  document.getElementById('t_sales').value='';
+  document.getElementById('t_year').value='';
+  document.getElementById('t_month').value='1';
+  document.getElementById('t_value').value='';
+  editingTargetRowIndex = null;
+  document.getElementById('targetBtn').textContent = '＋ Add Target';
+  document.getElementById('targetStatus').textContent = '';
+}
+
+async function addTarget(){
+  const t = {
+    salesperson: document.getElementById('t_sales').value.trim(),
+    year: parseInt(document.getElementById('t_year').value) || new Date().getFullYear(),
+    month: parseInt(document.getElementById('t_month').value),
+    target: parseFloat(document.getElementById('t_value').value) || 0
+  };
+  if(!t.salesperson || !t.year || !t.target){
+    toast('Please fill Sales Person, Year and Target Value', 'err');
+    return;
+  }
+
+  if(editingTargetRowIndex !== null){
+    document.getElementById('targetStatus').textContent = 'Updating...';
+    if(SCRIPT_URL){
+      await updateTargetRemote(editingTargetRowIndex, t);
+    }else{
+      targets[editingTargetRowIndex-2] = t;
+      localStorage.setItem('localTargets', JSON.stringify(targets));
+    }
+    toast('Target updated ✓');
+  }else{
+    document.getElementById('targetStatus').textContent = 'Saving...';
+    await pushTarget(t);
+    toast('Target added ✓');
+  }
+
+  clearTargetForm();
+  await refreshData();
+  renderTargetsTable();
+}
+
+const MONTH_NAMES = ['','January','February','March','April','May','June','July','August','September','October','November','December'];
+
+function renderTargetsTable(){
+  const tbody = document.getElementById('targetsBody');
+  if(targets.length===0){
+    tbody.innerHTML = '';
+    document.getElementById('targetsEmpty').style.display='block';
+    return;
+  }
+  document.getElementById('targetsEmpty').style.display='none';
+  tbody.innerHTML = targets.map((t,i)=>`
+    <tr>
+      <td>${t.salesperson||''}</td>
+      <td>${t.year||''}</td>
+      <td>${MONTH_NAMES[Number(t.month)]||t.month}</td>
+      <td>$${Number(t.target||0).toLocaleString(undefined,{minimumFractionDigits:2})}</td>
+      <td>
+        <button class="row-del" style="color:var(--accent-3)" onclick="editTarget(${i})">Edit</button>
+        <button class="row-del" onclick="removeTarget(${i})">Delete</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function editTarget(i){
+  const t = targets[i];
+  document.getElementById('t_sales').value = t.salesperson || '';
+  document.getElementById('t_year').value = t.year || '';
+  document.getElementById('t_month').value = t.month || '1';
+  document.getElementById('t_value').value = t.target || '';
+  editingTargetRowIndex = i + 2; // sheet row (1-indexed + header)
+  document.getElementById('targetBtn').textContent = '✓ Save Changes';
+  document.getElementById('targetStatus').textContent = 'Editing existing target — make changes and click "Save Changes".';
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+async function removeTarget(i){
+  if(!confirm('Delete this target? This cannot be undone.')) return;
+  const rowIndex = i + 2;
+  targets.splice(i,1);
+  if(SCRIPT_URL){
+    await deleteTargetRemote(rowIndex);
+  }else{
+    localStorage.setItem('localTargets', JSON.stringify(targets));
+  }
+  toast('Target deleted');
+  await refreshData();
+  renderTargetsTable();
 }
 
 function baseOptions(showGrid){
@@ -1196,7 +1618,8 @@ async function exportPDF(){
     {key:'item', title:'Mix by Generic Item'},
     {key:'factory', title:'PI Value by Factory'},
     {key:'sales', title:'PI Value by Sales Person'},
-    {key:'customer', title:'Top Customers by PI Value'}
+    {key:'customer', title:'Top Customers by PI Value'},
+    {key:'targetAch', title:'Target vs Achievement (Selected Month)'}
   ];
 
   for(let i=0;i<chartList.length;i+=2){
@@ -1237,7 +1660,8 @@ async function exportPDF(){
 /* ---------- Apps Script downloader ---------- */
 function downloadScript(){
   const code = `function doGet(e) {
-  var sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName('Sales');
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var sheet = ss.getSheetByName('Sales');
   var data = sheet.getDataRange().getValues();
   var headers = data.shift();
   var records = data.map(function(row){
@@ -1255,12 +1679,30 @@ function downloadScript(){
       newsales: row[10] || 'No'
     };
   });
-  return ContentService.createTextOutput(JSON.stringify({records: records}))
+
+  var targets = [];
+  var targetSheet = ss.getSheetByName('Targets');
+  if (targetSheet) {
+    var tdata = targetSheet.getDataRange().getValues();
+    tdata.shift();
+    targets = tdata.map(function(row){
+      return {
+        salesperson: row[0],
+        year: row[1],
+        month: row[2],
+        target: row[3]
+      };
+    });
+  }
+
+  return ContentService.createTextOutput(JSON.stringify({records: records, targets: targets}))
     .setMimeType(ContentService.MimeType.JSON);
 }
 
 function doPost(e) {
-  var sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName('Sales');
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var sheet = ss.getSheetByName('Sales');
+  var targetSheet = ss.getSheetByName('Targets');
   var body = JSON.parse(e.postData.contents);
 
   if (body.action === 'add') {
@@ -1272,6 +1714,15 @@ function doPost(e) {
     sheet.getRange(rowIndex, 1, 1, 11).setValues([[r.date, r.pino, r.customer, r.buyer, r.itemcode, r.generic, r.style, r.value, r.factory, r.sales, r.newsales || 'No']]);
   } else if (body.action === 'delete') {
     sheet.deleteRow(body.rowIndex);
+  } else if (body.action === 'addTarget') {
+    var t = body.target;
+    targetSheet.appendRow([t.salesperson, t.year, t.month, t.target]);
+  } else if (body.action === 'updateTarget') {
+    var t = body.target;
+    var trIndex = body.rowIndex;
+    targetSheet.getRange(trIndex, 1, 1, 4).setValues([[t.salesperson, t.year, t.month, t.target]]);
+  } else if (body.action === 'deleteTarget') {
+    targetSheet.deleteRow(body.rowIndex);
   }
 
   return ContentService.createTextOutput(JSON.stringify({status:'ok'}))
