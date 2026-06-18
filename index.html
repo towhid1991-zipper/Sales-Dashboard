@@ -497,10 +497,6 @@ footer .logo-line span{ color:var(--accent); }
         </select>
       </div>
       <div class="field">
-        <label>Style Reference</label>
-        <input type="text" id="f_style" placeholder="e.g. SR-2026-A">
-      </div>
-      <div class="field">
         <label>PI Value (USD)</label>
         <input type="number" step="0.01" id="f_value" placeholder="e.g. 12500.00">
       </div>
@@ -552,7 +548,7 @@ footer .logo-line span{ color:var(--accent); }
         <thead>
           <tr>
             <th>PI Date</th><th>PI No</th><th>Customer</th><th>Buyer</th><th>Item Code</th>
-            <th>Generic Item</th><th>Style Ref</th><th>PI Value</th><th>Factory</th><th>Sales Person</th><th>New Sales</th><th></th>
+            <th>Generic Item</th><th>PI Value</th><th>Factory</th><th>Sales Person</th><th>New Sales</th><th></th>
           </tr>
         </thead>
         <tbody id="tableBody"></tbody>
@@ -641,7 +637,7 @@ footer .logo-line span{ color:var(--accent); }
       <div class="step">
         <div class="num">1</div>
         <div class="txt">Create a new Google Sheet. Rename the first tab to <code>Sales</code>. In row 1, add these exact headers in order:<br>
-        <code>PI Date | Proforma Invoice No | Customer Name | Buyer Name | Item Code | Generic Item | Style Reference | PI Value | Factory | Sales Person Name</code></div>
+        <code>PI Date | Proforma Invoice No | Customer Name | Buyer Name | Item Code | Generic Item | PI Value | Factory | Sales Person Name | New Sales</code></div>
       </div>
       <div class="step">
         <div class="num">2</div>
@@ -852,7 +848,7 @@ async function deleteTargetRemote(rowIndex){
 
 /* ---------- Entry form ---------- */
 function clearForm(){
-  ['f_date','f_pino','f_customer','f_buyer','f_itemcode','f_style','f_value','f_sales'].forEach(id=>document.getElementById(id).value='');
+  ['f_date','f_pino','f_customer','f_buyer','f_itemcode','f_value','f_sales'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('f_generic').value='Nylon';
   document.getElementById('f_factory').value='IFBD';
   document.getElementById('f_newsales').value='No';
@@ -869,7 +865,6 @@ async function addRecord(){
     buyer: document.getElementById('f_buyer').value.trim(),
     itemcode: document.getElementById('f_itemcode').value.trim(),
     generic: document.getElementById('f_generic').value,
-    style: document.getElementById('f_style').value.trim(),
     value: parseFloat(document.getElementById('f_value').value) || 0,
     factory: document.getElementById('f_factory').value,
     sales: document.getElementById('f_sales').value.trim(),
@@ -927,7 +922,6 @@ function editRecord(localIndex){
   document.getElementById('f_buyer').value = rec.buyer || '';
   document.getElementById('f_itemcode').value = rec.itemcode || '';
   document.getElementById('f_generic').value = rec.generic || 'Nylon';
-  document.getElementById('f_style').value = rec.style || '';
   document.getElementById('f_value').value = rec.value || '';
   document.getElementById('f_factory').value = rec.factory || 'IFBD';
   document.getElementById('f_sales').value = rec.sales || '';
@@ -954,7 +948,7 @@ function renderTable(){
   const search = (document.getElementById('searchBox')?.value || '').toLowerCase();
   let rows = records.filter(r=>{
     if(!search) return true;
-    return [r.pino,r.customer,r.buyer,r.sales,r.itemcode,r.style].join(' ').toLowerCase().includes(search);
+    return [r.pino,r.customer,r.buyer,r.sales,r.itemcode].join(' ').toLowerCase().includes(search);
   });
   if(rows.length===0){
     tbody.innerHTML = '';
@@ -970,7 +964,6 @@ function renderTable(){
       <td>${r.buyer||''}</td>
       <td>${r.itemcode||''}</td>
       <td>${genericTag(r.generic||'Nylon')}</td>
-      <td>${r.style||''}</td>
       <td>$${Number(r.value||0).toLocaleString(undefined,{minimumFractionDigits:2})}</td>
       <td><span class="tag tag-factory">${r.factory||''}</span></td>
       <td>${r.sales||''}</td>
@@ -1001,7 +994,7 @@ function getFilteredRecords(){
   const search = (document.getElementById('searchBox')?.value || '').toLowerCase();
   return records.filter(r=>{
     if(!search) return true;
-    return [r.pino,r.customer,r.buyer,r.sales,r.itemcode,r.style].join(' ').toLowerCase().includes(search);
+    return [r.pino,r.customer,r.buyer,r.sales,r.itemcode].join(' ').toLowerCase().includes(search);
   });
 }
 
@@ -1531,20 +1524,20 @@ function exportExcel(){
     ['Generated: '+new Date().toLocaleString()],
     ['Total PI Value: $'+total.toLocaleString(undefined,{minimumFractionDigits:2}), '', 'Total PIs: '+data.length, '', 'New Sales: '+newSalesCount],
     [],
-    ['PI Date','Proforma Invoice No','Customer Name','Buyer Name','Item Code','Generic Item','Style Reference','PI Value (USD)','Factory','Sales Person Name','New Sales']
+    ['PI Date','Proforma Invoice No','Customer Name','Buyer Name','Item Code','Generic Item','PI Value (USD)','Factory','Sales Person Name','New Sales']
   ];
   data.forEach(r=>{
-    aoa.push([r.date, r.pino, r.customer, r.buyer, r.itemcode, r.generic, r.style, Number(r.value||0), r.factory, r.sales, r.newsales||'No']);
+    aoa.push([r.date, r.pino, r.customer, r.buyer, r.itemcode, r.generic, Number(r.value||0), r.factory, r.sales, r.newsales||'No']);
   });
   aoa.push([]);
   aoa.push(['Sales Command Center — System designed & engineered by Towhid']);
 
   const ws = XLSX.utils.aoa_to_sheet(aoa);
   ws['!merges'] = [
-    {s:{r:0,c:0}, e:{r:0,c:10}},
-    {s:{r:1,c:0}, e:{r:1,c:10}}
+    {s:{r:0,c:0}, e:{r:0,c:9}},
+    {s:{r:1,c:0}, e:{r:1,c:9}}
   ];
-  ws['!cols'] = [{wch:12},{wch:18},{wch:22},{wch:18},{wch:14},{wch:12},{wch:14},{wch:14},{wch:10},{wch:18},{wch:10}];
+  ws['!cols'] = [{wch:12},{wch:18},{wch:22},{wch:18},{wch:14},{wch:12},{wch:14},{wch:10},{wch:18},{wch:10}];
   XLSX.utils.book_append_sheet(wb, ws, 'Sales Report');
 
   /* ---- Sheet 2: Chart Data (data behind each dashboard graph) ---- */
@@ -1625,8 +1618,8 @@ async function exportPDF(){
 
   doc.autoTable({
     startY:34,
-    head:[['PI Date','PI No','Customer','Buyer','Item Code','Generic','Style Ref','PI Value (USD)','Factory','Sales Person','New Sales']],
-    body:data.map(r=>[r.date,r.pino,r.customer,r.buyer,r.itemcode,r.generic,r.style,'$'+Number(r.value||0).toLocaleString(undefined,{minimumFractionDigits:2}),r.factory,r.sales,r.newsales||'No']),
+    head:[['PI Date','PI No','Customer','Buyer','Item Code','Generic','PI Value (USD)','Factory','Sales Person','New Sales']],
+    body:data.map(r=>[r.date,r.pino,r.customer,r.buyer,r.itemcode,r.generic,'$'+Number(r.value||0).toLocaleString(undefined,{minimumFractionDigits:2}),r.factory,r.sales,r.newsales||'No']),
     styles:{ fontSize:8 },
     headStyles:{ fillColor:[15,22,35] }
   });
@@ -1692,11 +1685,10 @@ function downloadScript(){
       buyer: row[3],
       itemcode: row[4],
       generic: row[5],
-      style: row[6],
-      value: row[7],
-      factory: row[8],
-      sales: row[9],
-      newsales: row[10] || 'No'
+      value: row[6],
+      factory: row[7],
+      sales: row[8],
+      newsales: row[9] || 'No'
     };
   });
 
@@ -1727,11 +1719,11 @@ function doPost(e) {
 
   if (body.action === 'add') {
     var r = body.record;
-    sheet.appendRow([r.date, r.pino, r.customer, r.buyer, r.itemcode, r.generic, r.style, r.value, r.factory, r.sales, r.newsales || 'No']);
+    sheet.appendRow([r.date, r.pino, r.customer, r.buyer, r.itemcode, r.generic, r.value, r.factory, r.sales, r.newsales || 'No']);
   } else if (body.action === 'update') {
     var r = body.record;
     var rowIndex = body.rowIndex;
-    sheet.getRange(rowIndex, 1, 1, 11).setValues([[r.date, r.pino, r.customer, r.buyer, r.itemcode, r.generic, r.style, r.value, r.factory, r.sales, r.newsales || 'No']]);
+    sheet.getRange(rowIndex, 1, 1, 10).setValues([[r.date, r.pino, r.customer, r.buyer, r.itemcode, r.generic, r.value, r.factory, r.sales, r.newsales || 'No']]);
   } else if (body.action === 'delete') {
     sheet.deleteRow(body.rowIndex);
   } else if (body.action === 'addTarget') {
