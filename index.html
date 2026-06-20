@@ -111,7 +111,7 @@ select.ctrl:focus, input.ctrl:focus{border-color:var(--indigo);box-shadow:0 0 0 
 .view.active{display:block;}
 
 /* ===== KPI cards ===== */
-.kpi-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:14px;margin-bottom:22px;}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:22px;}
 .kpi-card{
   background:#fff;border:1px solid var(--border);border-radius:16px;padding:16px 16px 14px;
   box-shadow:var(--shadow-sm);position:relative;overflow:hidden;
@@ -673,14 +673,14 @@ function buildRAW(){
       m: d ? (d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')) : null,
       month: d ? (d.getMonth()+1) : null,
       year: d ? d.getFullYear() : null,
-      pi: r.pino || '',
-      cust: r.customer || '',
-      buyer: r.buyer || '',
-      item: r.itemcode || '',
-      gen: r.generic || 'Unknown',
+      pi: String(r.pino ?? ''),
+      cust: String(r.customer ?? ''),
+      buyer: String(r.buyer ?? ''),
+      item: String(r.itemcode ?? ''),
+      gen: String(r.generic ?? 'Unknown'),
       val: Number(r.value||0),
-      fac: r.factory || 'Unknown',
-      sp: r.sales || 'Unknown',
+      fac: String(r.factory ?? 'Unknown'),
+      sp: String(r.sales ?? 'Unknown'),
       new: r.newsales === 'Yes'
     };
   }).filter(r=>r.dateObj);
@@ -910,7 +910,9 @@ function renderOverviewKPIs(rows){
   const total = rows.reduce((a,r)=>a+r.val,0);
   const piCount = rows.length;
   const avg = piCount ? total/piCount : 0;
-  const newCount = rows.filter(r=>r.new).length;
+  const newRows = rows.filter(r=>r.new);
+  const newCount = newRows.length;
+  const newValue = newRows.reduce((a,r)=>a+r.val,0);
   const custCount = new Set(rows.map(r=>r.cust)).size;
   const spCount = new Set(rows.map(r=>r.sp)).size;
 
@@ -919,6 +921,7 @@ function renderOverviewKPIs(rows){
     kpiCard('Total PIs', FMT_INT(piCount), 'in current filter', '#14B8A6'),
     kpiCard('Avg PI Value', FMT$(avg), 'per invoice', '#F59E0B'),
     kpiCard('New Sales', FMT_INT(newCount), `${piCount?((newCount/piCount)*100).toFixed(1):0}% of PIs`, '#FB7185'),
+    kpiCard('New Sales Value', FMT$(newValue), `${total?((newValue/total)*100).toFixed(1):0}% of total value`, '#FB7185'),
     kpiCard('Active Customers', FMT_INT(custCount), 'unique buyers served', '#A78BFA'),
     kpiCard('Sales Team', FMT_INT(spCount), 'active sales persons', '#38BDF8'),
   ].join('');
@@ -1297,8 +1300,13 @@ function getTableRows(filteredRows){
   if(tableState.newOnly) rows = rows.filter(r=>r.new);
   if(tableState.search){
     const s = tableState.search.toLowerCase();
-    rows = rows.filter(r => r.cust.toLowerCase().includes(s) || r.buyer.toLowerCase().includes(s) ||
-      r.item.toLowerCase().includes(s) || String(r.pi).toLowerCase().includes(s) || r.sp.toLowerCase().includes(s));
+    rows = rows.filter(r =>
+      String(r.cust||'').toLowerCase().includes(s) ||
+      String(r.buyer||'').toLowerCase().includes(s) ||
+      String(r.item||'').toLowerCase().includes(s) ||
+      String(r.pi||'').toLowerCase().includes(s) ||
+      String(r.sp||'').toLowerCase().includes(s)
+    );
   }
   rows = [...rows].sort((a,b)=>{
     let av = a[tableState.sortKey], bv = b[tableState.sortKey];
@@ -1360,12 +1368,23 @@ function renderDataTable(filteredRows){
 }
 
 function setupDataTableControls(){
-  document.getElementById('dtSearch').addEventListener('input', e=>{
-    tableState.search = e.target.value; tableState.page = 1; renderDataTable(getFiltered());
-  });
-  document.getElementById('dtNewOnly').addEventListener('change', e=>{
-    tableState.newOnly = e.target.checked; tableState.page = 1; renderDataTable(getFiltered());
-  });
+  const searchEl = document.getElementById('dtSearch');
+  const newOnlyEl = document.getElementById('dtNewOnly');
+  if(searchEl){
+    searchEl.addEventListener('input', e=>{
+      tableState.search = e.target.value;
+      tableState.page = 1;
+      renderDataTable(getFiltered());
+    });
+    searchEl.addEventListener('keydown', e=>{ if(e.key==='Enter') e.preventDefault(); });
+  }
+  if(newOnlyEl){
+    newOnlyEl.addEventListener('change', e=>{
+      tableState.newOnly = e.target.checked;
+      tableState.page = 1;
+      renderDataTable(getFiltered());
+    });
+  }
   document.getElementById('pgFirst').addEventListener('click', ()=>{ tableState.page = 1; renderDataTable(getFiltered()); });
   document.getElementById('pgPrev').addEventListener('click', ()=>{ tableState.page = Math.max(1,tableState.page-1); renderDataTable(getFiltered()); });
   document.getElementById('pgNext').addEventListener('click', ()=>{ tableState.page += 1; renderDataTable(getFiltered()); });
@@ -1398,13 +1417,15 @@ function exportExcel(){
   const data = getFiltered();
   if(data.length===0){ alert('No data in current filter to export'); return; }
   const total = data.reduce((s,r)=>s+r.val,0);
-  const newSalesCount = data.filter(r=>r.new).length;
+  const newRows = data.filter(r=>r.new);
+  const newSalesCount = newRows.length;
+  const newSalesValue = newRows.reduce((s,r)=>s+r.val,0);
 
   const wb = XLSX.utils.book_new();
   const aoa = [
     ['SALES REPORT'],
     ['Generated: '+new Date().toLocaleString()],
-    ['Total PI Value: $'+total.toLocaleString(undefined,{minimumFractionDigits:2}), '', 'Total PIs: '+data.length, '', 'New Sales: '+newSalesCount],
+    ['Total PI Value: $'+total.toLocaleString(undefined,{minimumFractionDigits:2}), '', 'Total PIs: '+data.length, '', 'New Sales: '+newSalesCount+' ($'+newSalesValue.toLocaleString(undefined,{minimumFractionDigits:2})+')'],
     [],
     ['PI Date','Proforma Invoice No','Customer Name','Buyer Name','Item Code','Generic Item','PI Value (USD)','Factory','Sales Person Name','New Sales']
   ];
@@ -1459,13 +1480,15 @@ async function exportPDF(){
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({orientation:'landscape'});
   const total = data.reduce((s,r)=>s+r.val,0);
-  const newSalesCount = data.filter(r=>r.new).length;
+  const newRows = data.filter(r=>r.new);
+  const newSalesCount = newRows.length;
+  const newSalesValue = newRows.reduce((s,r)=>s+r.val,0);
 
   doc.setFontSize(16);
   doc.text('Sales Report', 14, 16);
   doc.setFontSize(10);
   doc.text('Generated: '+new Date().toLocaleString(), 14, 22);
-  doc.text('Total PI Value: $'+total.toLocaleString(undefined,{minimumFractionDigits:2})+'   |   Total PIs: '+data.length+'   |   New Sales: '+newSalesCount, 14, 28);
+  doc.text('Total PI Value: $'+total.toLocaleString(undefined,{minimumFractionDigits:2})+'   |   Total PIs: '+data.length+'   |   New Sales: '+newSalesCount+' ($'+newSalesValue.toLocaleString(undefined,{minimumFractionDigits:2})+')', 14, 28);
 
   doc.autoTable({
     startY:34,
@@ -1723,29 +1746,33 @@ function disconnectSheet(){
    INIT
    ============================================================ */
 document.addEventListener('DOMContentLoaded', ()=>{
-  setupTabs();
-  setupDataTableControls();
+  try{ setupTabs(); }catch(e){ console.error('setupTabs failed', e); }
+  try{ setupDataTableControls(); }catch(e){ console.error('setupDataTableControls failed', e); }
 
-  document.getElementById('f_date').valueAsDate = new Date();
+  const dateEl = document.getElementById('f_date');
+  if(dateEl) dateEl.valueAsDate = new Date();
   if(SCRIPT_URL){ const su = document.getElementById('scriptUrl'); if(su) su.value = SCRIPT_URL; }
 
-  document.getElementById('addBtn').addEventListener('click', addRecord);
-  document.getElementById('clearFormBtn').addEventListener('click', clearForm);
-  document.getElementById('targetBtn').addEventListener('click', addTarget);
-  document.getElementById('clearTargetBtn').addEventListener('click', clearTargetForm);
-  document.getElementById('connectBtn').addEventListener('click', connectSheet);
-  document.getElementById('disconnectBtn').addEventListener('click', disconnectSheet);
+  const bind = (id, fn) => { const el = document.getElementById(id); if(el) el.addEventListener('click', fn); };
+  bind('addBtn', addRecord);
+  bind('clearFormBtn', clearForm);
+  bind('targetBtn', addTarget);
+  bind('clearTargetBtn', clearTargetForm);
+  bind('connectBtn', connectSheet);
+  bind('disconnectBtn', disconnectSheet);
+  bind('btnExportExcelOv', exportExcel);
+  bind('btnExportPdfOv', exportPDF);
+  bind('btnExportHtmlOv', downloadHtmlSnapshot);
+  bind('btnExportExcelTbl', exportExcel);
+  bind('btnExportPdfTbl', exportPDF);
 
-  document.getElementById('growthRate').addEventListener('input', (e)=>{
-    let v = parseFloat(e.target.value); if(isNaN(v)) v = 0;
-    state.growth = v; renderProjectionTab();
-  });
-
-  document.getElementById('btnExportExcelOv').addEventListener('click', exportExcel);
-  document.getElementById('btnExportPdfOv').addEventListener('click', exportPDF);
-  document.getElementById('btnExportHtmlOv').addEventListener('click', downloadHtmlSnapshot);
-  document.getElementById('btnExportExcelTbl').addEventListener('click', exportExcel);
-  document.getElementById('btnExportPdfTbl').addEventListener('click', exportPDF);
+  const growthEl = document.getElementById('growthRate');
+  if(growthEl){
+    growthEl.addEventListener('input', (e)=>{
+      let v = parseFloat(e.target.value); if(isNaN(v)) v = 0;
+      state.growth = v; renderProjectionTab();
+    });
+  }
 
   refreshData();
 });
